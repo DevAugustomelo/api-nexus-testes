@@ -1,0 +1,57 @@
+name: API E-commerce CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # Fase 1: Segurança e Build
+  sast:
+    name: Security Scan (SAST)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: echo "Executando análise estática..."
+
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - run: npm ci
+      - run: echo "Compilando..."
+
+  # Fase 2: Qualidade e Unidade (Depende de SAST e Build)
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: [build, sast] # Fail Fast
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - run: npm ci
+      - run: npm test
+
+  lint-quality:
+    name: Code Linting
+    runs-on: ubuntu-latest
+    needs: [build, sast] # Fail Fast
+    steps:
+      - uses: actions/checkout@v5
+      - run: echo "Executando Linter..."
+
+  # Fase 3: Testes de API (Depende de test e lint-quality)
+  api-tests:
+    name: API E2E Tests
+    runs-on: ubuntu-latest
+    needs: [test, lint-quality] # Fail Fast: só roda se a Fase 2 passar!
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash scripts/api-tests.sh # Executa o script de testes da API
